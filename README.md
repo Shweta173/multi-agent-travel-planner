@@ -10,7 +10,7 @@ START → Flight Agent → Hotel Agent → Itinerary Agent → Final Agent → E
 
 | Agent | What it does | Source |
 | --- | --- | --- |
-| Flight Agent | Fetches live flight data | Aviationstack API |
+| Flight Agent | Uses the LLM to pull the origin, destination and date out of the request as airport codes (e.g. "Mumbai to Goa" → BOM → GOI), then looks up flights on that route | Groq LLM + Aviationstack API |
 | Hotel Agent | Searches the web for the best hotels for the trip | Tavily Search API |
 | Itinerary Agent | Writes a travel itinerary from the query, flights and hotels | Groq LLM (`openai/gpt-oss-120b`) |
 | Final Agent | Combines everything into the final travel response | Groq LLM |
@@ -83,7 +83,8 @@ python main.py
 
 ## Known limitations
 
-- The flight tool currently returns the latest flights from Aviationstack and doesn't yet filter by the origin, destination or dates in your query. Hotel search and the itinerary do use your query.
+- The free Aviationstack plan doesn't support searching by date, so on that plan the app shows current flights on your route and says so in the results. A paid plan returns flights for the exact date.
+- If your request doesn't say where you're travelling from, flights into the destination from any airport are shown.
 - The agents run one after another in a fixed order. Flights and hotels could run in parallel since they don't depend on each other.
 
 ## Author

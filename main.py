@@ -1,9 +1,11 @@
 import os
-from typing import TypedDict, Annotated
+from datetime import date
+from typing import TypedDict, Annotated, Optional
 import operator
 
 import psycopg
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 from langgraph.graph import StateGraph, START, END
 from langgraph.checkpoint.postgres import PostgresSaver
@@ -61,11 +63,48 @@ class TravelState(TypedDict):
 # FLIGHT AGENT
 # ============================================================
 
+class FlightRoute(BaseModel):
+    origin: Optional[str] = Field(
+        default=None,
+        description="IATA code of the departure airport, or null if the user didn't say where they are travelling from"
+    )
+    destination: Optional[str] = Field(
+        default=None,
+        description="IATA code of the main airport for the destination, e.g. GOI for Goa or DPS for Bali"
+    )
+    flight_date: Optional[str] = Field(
+        default=None,
+        description="Outbound travel date as YYYY-MM-DD, or null if no specific date was given"
+    )
+
+
+route_llm = llm.with_structured_output(FlightRoute)
+
+
 def flight_agent(state: TravelState):
 
     query = state["user_query"]
 
-    flight_data = search_flights(query)
+    route = route_llm.invoke(
+        [
+            SystemMessage(
+                content=(
+                    "Extract the flight route from the travel request. "
+                    f"Today's date is {date.today().isoformat()}. "
+                    "Use 3-letter IATA airport codes."
+                )
+            ),
+            HumanMessage(
+                content=query
+            )
+        ]
+    )
+
+    flight_data = search_flights(
+        origin=(route.origin or "").upper() or None,
+        destination=(route.destination or "").upper() or None,
+        flight_date=route.flight_date
+    )
 
     return {
         "flight_results": flight_data,
